@@ -16,7 +16,7 @@ struct WhatsAppCategory: CleanupCategory {
 
     func scan() async -> CategoryResult {
         let base = CategoryResult(
-            id: id, name: "WhatsApp Leftover Media",
+            id: id, section: .otherApps, name: "WhatsApp Leftover Media",
             summary: "Photos, videos and voice notes that no chat refers to any more.",
             explanation: "WhatsApp leaves media files on disk after messages are deleted or chat history is re-synced. "
                 + "This compares every file in Message/Media with the paths stored in WhatsApp's database (ChatStorage.sqlite: "

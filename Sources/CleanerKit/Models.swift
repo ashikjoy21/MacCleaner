@@ -74,9 +74,15 @@ public struct CleanupItem: Identifiable, Sendable, Hashable {
     public let method: RemovalMethod
     public let isSelectedByDefault: Bool
     public let lastModified: Date?
+    /// For project items: the checked-out git branch and the date of the latest commit.
+    public let gitBranch: String?
+    public let lastCommit: Date?
 
     public init(id: String, title: String, subtitle: String? = nil, paths: [URL], size: Int64,
-                method: RemovalMethod, isSelectedByDefault: Bool, lastModified: Date? = nil) {
+                method: RemovalMethod, isSelectedByDefault: Bool, lastModified: Date? = nil,
+                gitBranch: String? = nil, lastCommit: Date? = nil) {
+        self.gitBranch = gitBranch
+        self.lastCommit = lastCommit
         self.id = id
         self.title = title
         self.subtitle = subtitle
@@ -104,9 +110,26 @@ public enum CategoryStatus: Sendable, Hashable {
     case unavailable(String)
 }
 
+/// Groups categories in the sidebar and overview. Builders' projects come first.
+public enum CategorySection: Int, Sendable, CaseIterable, Comparable {
+    case projects, developerTools, aiTools, otherApps
+
+    public var title: String {
+        switch self {
+        case .projects: "Projects"
+        case .developerTools: "Developer Tools"
+        case .aiTools: "AI Tools"
+        case .otherApps: "Other Apps"
+        }
+    }
+
+    public static func < (a: Self, b: Self) -> Bool { a.rawValue < b.rawValue }
+}
+
 /// The result of scanning one category.
 public struct CategoryResult: Identifiable, Sendable {
     public let id: String
+    public let section: CategorySection
     public let name: String
     /// One plain sentence: what this is.
     public let summary: String
@@ -119,9 +142,11 @@ public struct CategoryResult: Identifiable, Sendable {
     public let items: [CleanupItem]
     public let status: CategoryStatus
 
-    public init(id: String, name: String, summary: String, explanation: String, symbol: String, safety: Safety,
-                appToQuit: AppIdentity? = nil, items: [CleanupItem] = [], status: CategoryStatus = .ready) {
+    public init(id: String, section: CategorySection = .developerTools, name: String, summary: String, explanation: String,
+                symbol: String, safety: Safety, appToQuit: AppIdentity? = nil, items: [CleanupItem] = [],
+                status: CategoryStatus = .ready) {
         self.id = id
+        self.section = section
         self.name = name
         self.summary = summary
         self.explanation = explanation
@@ -145,12 +170,12 @@ public struct CategoryResult: Identifiable, Sendable {
     }
 
     func with(items: [CleanupItem]) -> CategoryResult {
-        CategoryResult(id: id, name: name, summary: summary, explanation: explanation, symbol: symbol,
+        CategoryResult(id: id, section: section, name: name, summary: summary, explanation: explanation, symbol: symbol,
                        safety: safety, appToQuit: appToQuit, items: items, status: status)
     }
 
     func with(status: CategoryStatus) -> CategoryResult {
-        CategoryResult(id: id, name: name, summary: summary, explanation: explanation, symbol: symbol,
+        CategoryResult(id: id, section: section, name: name, summary: summary, explanation: explanation, symbol: symbol,
                        safety: safety, appToQuit: appToQuit, items: items, status: status)
     }
 }

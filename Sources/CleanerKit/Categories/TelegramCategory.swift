@@ -15,7 +15,7 @@ struct TelegramCategory: CleanupCategory {
 
     func scan() async -> CategoryResult {
         let base = CategoryResult(
-            id: id, name: "Telegram Media Cache",
+            id: id, section: .otherApps, name: "Telegram Media Cache",
             summary: "Photos, videos and files Telegram downloaded while you scrolled.",
             explanation: "Telegram keeps chats in the cloud and caches downloaded media in postbox/media. "
                 + "This is the same data Telegram's own Clear Cache removes; media downloads again when you open it. "

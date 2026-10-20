@@ -14,11 +14,12 @@ struct FolderListCategory: CleanupCategory {
     let summary: String
     let explanation: String
     let symbol: String
+    var section: CategorySection = .developerTools
     let home: URL
     let folders: [KnownFolder]
 
     func scan() async -> CategoryResult {
-        let base = CategoryResult(id: id, name: name, summary: summary, explanation: explanation,
+        let base = CategoryResult(id: id, section: section, name: name, summary: summary, explanation: explanation,
                                   symbol: symbol, safety: .regenerates)
         let items = await withTaskGroup(of: CleanupItem?.self) { group in
             for folder in folders {
@@ -71,7 +72,7 @@ extension FolderListCategory {
             explanation: "Only the cache folders are removed. History, passwords, bookmarks and sign-ins live elsewhere "
                 + "and are not touched. Sites may load a little slower the first time afterwards. "
                 + "Files a running browser is using are skipped; quit the browser for a full clean.",
-            symbol: "globe", home: home,
+            symbol: "globe", section: .otherApps, home: home,
             folders: [
                 KnownFolder(name: "Google Chrome", relativePath: "Library/Caches/Google/Chrome", note: "Chrome's page and media cache"),
                 KnownFolder(name: "Brave", relativePath: "Library/Caches/BraveSoftware", note: "Brave's page and media cache"),

@@ -26,11 +26,11 @@ struct ProjectBuildsCategory: CleanupCategory {
 
     func scan() async -> CategoryResult {
         let base = CategoryResult(
-            id: id, name: "Project Build Files",
+            id: id, section: .projects, name: "Project Build Files",
             summary: "Installed packages and build output inside your code projects.",
             explanation: "Folders like node_modules, .next, build and .dart_tool are recreated by running the project's "
                 + "install or build command again (npm install, flutter pub get, ./gradlew build…). Your source code is not touched. "
-                + "Projects you haven't changed in 30 days are ticked; active projects start unticked.",
+                + "Projects with no commits or file changes in 30 days are ticked; active projects start unticked.",
             symbol: "folder.badge.gearshape", safety: .review)
 
         // On a case-insensitive disk ~/code and ~/Code are the same folder, so dedupe by file identity.
@@ -78,13 +78,30 @@ struct ProjectBuildsCategory: CleanupCategory {
 
     func makeItem(for artifact: URL) -> CleanupItem {
         let project = artifact.deletingLastPathComponent()
-        let lastUsed = projectLastModified(project)
-        let stale = lastUsed.map { Date().timeIntervalSince($0) > staleAfter } ?? false
+        let lastChanged = projectLastModified(project)
+        let git = Self.gitInfo(for: project)
+        // Active means a recent commit or recent uncommitted edits, whichever is newer.
+        let lastActive = [lastChanged, git.lastCommit].compactMap { $0 }.max()
+        let stale = lastActive.map { Date().timeIntervalSince($0) > staleAfter } ?? false
         var subtitle = artifact.lastPathComponent
-        if let rel = FileSystem.relative(lastUsed) { subtitle += " · project changed \(rel)" }
+        if let branch = git.branch { subtitle += " · \(branch)" }
+        if let rel = FileSystem.relative(git.lastCommit) { subtitle += " · last commit \(rel)" }
+        else if let rel = FileSystem.relative(lastChanged) { subtitle += " · changed \(rel)" }
         return CleanupItem(id: "project:\(artifact.path)", title: projectName(project), subtitle: subtitle,
                            paths: [artifact], size: FileSystem.allocatedSize(of: artifact), method: .delete,
-                           isSelectedByDefault: stale, lastModified: lastUsed)
+                           isSelectedByDefault: stale, lastModified: lastChanged,
+                           gitBranch: git.branch, lastCommit: git.lastCommit)
+    }
+
+    /// The checked-out branch and latest commit date, or nils when the folder isn't in a git repo.
+    static func gitInfo(for project: URL) -> (branch: String?, lastCommit: Date?) {
+        let log = Shell.run(["git", "-C", project.path, "log", "-1", "--format=%ct"], timeout: 10)
+        guard log.succeeded, let seconds = TimeInterval(log.output.trimmingCharacters(in: .whitespacesAndNewlines)) else {
+            return (nil, nil)
+        }
+        let head = Shell.run(["git", "-C", project.path, "rev-parse", "--abbrev-ref", "HEAD"], timeout: 10)
+        let branch = head.output.trimmingCharacters(in: .whitespacesAndNewlines)
+        return (head.succeeded && !branch.isEmpty ? branch : nil, Date(timeIntervalSince1970: seconds))
     }
 
     /// Project name, including the parent folder when the project sits inside another
