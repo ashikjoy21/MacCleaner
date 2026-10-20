@@ -3,6 +3,7 @@ import CleanerKit
 import Foundation
 import Observation
 import SwiftUI
+import UniformTypeIdentifiers
 
 @MainActor
 @Observable
@@ -18,7 +19,15 @@ final class AppModel {
     var showingCleanSheet = false
     var selection: String?
 
-    var categories: [CategoryResult] { results.values.filter(\.isVisible).sorted { $0.totalSize > $1.totalSize } }
+    var categories: [CategoryResult] {
+        results.values.filter(\.isVisible).sorted {
+            $0.section == $1.section ? $0.totalSize > $1.totalSize : $0.section < $1.section
+        }
+    }
+    var projectCategory: CategoryResult? { categories.first { $0.section == .projects } }
+    var projectItems: [CleanupItem] { (projectCategory?.items ?? []).sorted { $0.size > $1.size } }
+    var projectCount: Int { Set(projectItems.map(\.title)).count }
+    var toolCount: Int { categories.filter { $0.section != .projects }.count }
     var selectedBytes: Int64 { categories.flatMap(\.items).filter { selectedItemIDs.contains($0.id) }.reduce(0) { $0 + $1.size } }
     var selectedCount: Int { categories.filter { categorySelectedBytes($0) > 0 }.count }
     var selectedItems: [CleanupItem] { categories.flatMap(\.items).filter { selectedItemIDs.contains($0.id) } }
@@ -44,6 +53,20 @@ final class AppModel {
 
     func toggle(_ item: CleanupItem) {
         if selectedItemIDs.contains(item.id) { selectedItemIDs.remove(item.id) } else { selectedItemIDs.insert(item.id) }
+    }
+
+    func copyShellScript() {
+        let script = ShellScript.make(for: selectedItems, appsToQuit: appsToQuit)
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(script, forType: .string)
+    }
+
+    func saveShellScript() {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "maccleaner-cleanup.sh"
+        panel.allowedContentTypes = [.shellScript]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        try? ShellScript.make(for: selectedItems, appsToQuit: appsToQuit).write(to: url, atomically: true, encoding: .utf8)
     }
 
     func scan() async {

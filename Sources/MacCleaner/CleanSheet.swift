@@ -30,7 +30,8 @@ struct ConfirmationView: View {
                 }
                 if !model.appsToQuit.isEmpty { Section { ForEach(model.appsToQuit, id: \.bundleID) { app in Label("\(app.name) will be quit before cleaning.", systemImage: "exclamationmark.triangle").foregroundStyle(.secondary) } } }
             }.listStyle(.inset)
-            HStack { Spacer(); Button("Cancel", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
+            HStack { Button("Copy Script") { model.copyShellScript() }.disabled(model.selectedItems.isEmpty)
+                Spacer(); Button("Cancel", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
                 Button("Clean Up") { Task { await model.clean() } }.buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction) }
                 .padding(.top, 16)
         }

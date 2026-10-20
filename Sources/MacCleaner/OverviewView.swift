@@ -11,18 +11,37 @@ struct OverviewView: View {
                 VStack(alignment: .leading, spacing: 22) {
                     VStack(alignment: .leading, spacing: 6) {
                         Text("You can free up \(FileSystem.format(model.selectedBytes))").font(.largeTitle.weight(.semibold)).monospacedDigit()
-                        Text("Selected from \(model.selectedCount) categories · \(FileSystem.format(usage.availableBytes)) available on Macintosh HD")
+                        Text("Across \(model.projectCount) projects and \(model.toolCount) tools · \(FileSystem.format(usage.availableBytes)) available on Macintosh HD")
                             .foregroundStyle(.secondary)
                     }
                     StorageBar(usage: usage, selectedBytes: model.selectedBytes)
                     if model.isScanning { Label("Scanning…", systemImage: "arrow.triangle.2.circlepath").font(.callout).foregroundStyle(.secondary) }
-                    VStack(spacing: 0) {
-                        ForEach(model.categories) { category in
-                            CategoryOverviewRow(category: category)
-                            if category.id != model.categories.last?.id { Divider().padding(.leading, 52) }
+                    if let projects = model.projectCategory {
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("Projects").font(.title2.weight(.semibold))
+                                Spacer()
+                                Button("Show All Projects") { model.selection = projects.id }
+                            }
+                            VStack(spacing: 0) {
+                                ForEach(Array(model.projectItems.prefix(5))) { item in ProjectOverviewRow(item: item) }
+                            }.background(.background, in: RoundedRectangle(cornerRadius: 10))
                         }
                     }
-                    .background(.background, in: RoundedRectangle(cornerRadius: 10))
+                    ForEach(CategorySection.allCases.filter { $0 != .projects }, id: \.self) { section in
+                        let categories = model.categories.filter { $0.section == section }
+                        if !categories.isEmpty {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(section.title).font(.title2.weight(.semibold))
+                                VStack(spacing: 0) {
+                                    ForEach(Array(categories.enumerated()), id: \.element.id) { index, category in
+                                        CategoryOverviewRow(category: category)
+                                        if index < categories.count - 1 { Divider().padding(.leading, 52) }
+                                    }
+                                }.background(.background, in: RoundedRectangle(cornerRadius: 10))
+                            }
+                        }
+                    }
                 }
                 .padding(28)
             }
@@ -30,6 +49,27 @@ struct OverviewView: View {
                 .buttonStyle(.borderedProminent).controlSize(.large).disabled(model.selectedBytes == 0 || model.isCleaning || model.isScanning) }
                 .padding([.horizontal, .bottom], 24).padding(.top, 12)
         }
+    }
+}
+
+private struct ProjectOverviewRow: View {
+    @Environment(AppModel.self) private var model
+    let item: CleanupItem
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "hammer").foregroundStyle(.tint).frame(width: 24)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(item.title).font(.headline)
+                HStack(spacing: 8) {
+                    Text(item.paths.first?.lastPathComponent ?? "Build artifacts").foregroundStyle(.secondary)
+                    if let branch = item.gitBranch { Text(branch).font(.caption).foregroundStyle(.secondary).padding(.horizontal, 6).padding(.vertical, 2).background(.quaternary, in: Capsule()) }
+                    if let date = item.lastCommit { Text("last commit \(FileSystem.relative(date) ?? "recently")").font(.caption).foregroundStyle(.secondary) }
+                }.font(.caption).lineLimit(1)
+            }
+            Spacer(minLength: 8)
+            Text(FileSystem.format(item.size)).monospacedDigit().foregroundStyle(.secondary)
+            Toggle("Select \(item.title)", isOn: Binding(get: { model.selectedItemIDs.contains(item.id) }, set: { _ in model.toggle(item) })).labelsHidden().accessibilityLabel("Select \(item.title)")
+        }.padding(.horizontal, 16).padding(.vertical, 10)
     }
 }
 
