@@ -48,7 +48,7 @@ private struct CategoryOverviewRow: View {
                 Text(category.summary).font(.subheadline).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer(minLength: 12)
-            Text(FileSystem.format(selected)).monospacedDigit().foregroundStyle(.secondary)
+            Text(model.sizeLabel(for: category)).monospacedDigit().foregroundStyle(.secondary)
             Button { model.setCategory(category, selected: !isAllSelected) } label: {
                 Image(systemName: isPartiallySelected ? "minus.square" : (isAllSelected ? "checkmark.square.fill" : "square"))
                     .font(.title3).foregroundStyle(isAllSelected ? Color.accentColor : Color.secondary)

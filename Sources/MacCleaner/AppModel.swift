@@ -31,6 +31,13 @@ final class AppModel {
     func selectedBytes(in category: CategoryResult) -> Int64 { category.items.filter { selectedItemIDs.contains($0.id) }.reduce(0) { $0 + $1.size } }
     private func categorySelectedBytes(_ category: CategoryResult) -> Int64 { selectedBytes(in: category) }
 
+    /// "21 GB" when all or none of a category is ticked, "4.1 GB of 40 GB" when part of it is.
+    func sizeLabel(for category: CategoryResult) -> String {
+        let selected = selectedBytes(in: category), total = category.totalSize
+        guard selected > 0, selected < total else { return FileSystem.format(total) }
+        return "\(FileSystem.format(selected)) of \(FileSystem.format(total))"
+    }
+
     func setCategory(_ category: CategoryResult, selected: Bool) {
         for item in category.items { if selected { selectedItemIDs.insert(item.id) } else { selectedItemIDs.remove(item.id) } }
     }

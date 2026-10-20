@@ -34,13 +34,14 @@ struct MainView: View {
                         HStack(spacing: 8) {
                             Label(category.name, systemImage: category.symbol).lineLimit(1)
                             Spacer(minLength: 4)
-                            Text(FileSystem.format(model.selectedBytes(in: category))).foregroundStyle(.secondary).monospacedDigit()
+                            Text(FileSystem.format(category.totalSize)).foregroundStyle(.secondary).monospacedDigit().lineLimit(1).layoutPriority(1)
                         }.tag(category.id)
                     }
                 }
             }
             .navigationTitle("MacCleaner")
             .listStyle(.sidebar)
+            .navigationSplitViewColumnWidth(min: 240, ideal: 270, max: 340)
         } detail: {
             Group {
                 if let id = model.selection, id != "overview", let category = model.results[id] {
