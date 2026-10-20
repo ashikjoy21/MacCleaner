@@ -114,13 +114,15 @@ public enum CategoryStatus: Sendable, Hashable {
 
 /// Groups categories in the sidebar and overview. Builders' projects come first.
 public enum CategorySection: Int, Sendable, CaseIterable, Comparable {
-    case projects, developerTools, aiTools, otherApps
+    case projects, developerTools, aiTools, system, files, otherApps
 
     public var title: String {
         switch self {
         case .projects: "Projects"
         case .developerTools: "Developer Tools"
         case .aiTools: "AI Tools"
+        case .system: "macOS"
+        case .files: "Files"
         case .otherApps: "Other Apps"
         }
     }

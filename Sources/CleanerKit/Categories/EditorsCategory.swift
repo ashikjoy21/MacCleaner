@@ -31,6 +31,17 @@ struct EditorsCategory: CleanupCategory {
         var items: [CleanupItem] = []
         for editor in Self.editors {
             items += Self.leftoverExtensions(in: home.appendingPathComponent(editor.extensions), editor: editor.name)
+            // The editor rewrites state.vscdb.backup from state.vscdb; Cursor's can grow past a gigabyte.
+            let backup = home.appendingPathComponent(editor.support).appendingPathComponent("User/globalStorage/state.vscdb.backup")
+            if FileSystem.exists(backup) {
+                let size = FileSystem.allocatedSize(of: backup)
+                if size > 50_000_000 {
+                    items.append(CleanupItem(id: "editor:\(editor.name):state-backup", title: "\(editor.name) · state database backup",
+                                             subtitle: "state.vscdb.backup · the editor writes a new one from the live database",
+                                             paths: [backup], size: size, method: .delete, isSelectedByDefault: false,
+                                             lastModified: FileSystem.modificationDate(of: backup)))
+                }
+            }
             for cache in ["CachedData", "CachedExtensionVSIXs", "Cache", "Code Cache", "GPUCache"] {
                 let url = home.appendingPathComponent(editor.support).appendingPathComponent(cache)
                 guard FileSystem.isDirectory(url) else { continue }

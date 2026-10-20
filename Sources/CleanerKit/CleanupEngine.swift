@@ -19,7 +19,12 @@ public struct CleanupEngine: Sendable {
             ToolchainsCategory(home: home),
             FolderListCategory.developerCaches(home: home),
             AIToolsCategory(home: home),
+            AerialWallpapersCategory(home: home),
+            TrashCategory(home: home),
+            LargeOldFilesCategory(home: home),
+            DuplicatesCategory(home: home),
             FolderListCategory.browserCaches(home: home),
+            ChromeStorageCategory(home: home),
             WhatsAppCategory(home: home),
             TelegramCategory(home: home),
         ]
