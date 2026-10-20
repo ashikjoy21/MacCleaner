@@ -138,4 +138,31 @@ final class BuilderCategoriesTests: XCTestCase {
         XCTAssertTrue(script.contains("mv -n -- /m/Media/chat/a.jpg '/Users/me/.Trash/Left overs/chat/a.jpg'"))
         XCTAssertTrue(script.contains("\ndocker image prune -a -f\n"))
     }
+
+    // MARK: Telegram
+
+    func testTelegramSplitsByKindAndListsLargeFilesSeparately() throws {
+        let media = home.appendingPathComponent("tg/account-1/postbox/media")
+        try FileManager.default.createDirectory(at: media.appendingPathComponent("cache"), withIntermediateDirectories: true)
+        func file(_ name: String, header: [UInt8], size: Int) throws {
+            var data = Data(header); data.append(Data(repeating: 0, count: size))
+            try data.write(to: media.appendingPathComponent(name))
+        }
+        try file("telegram-cloud-document-4-1", header: [0x1A, 0x45, 0xDF, 0xA3], size: 3_000_000)        // big MKV
+        try FileManager.default.linkItem(at: media.appendingPathComponent("telegram-cloud-document-4-1"),
+                                         to: media.appendingPathComponent("telegram-cloud-document-4-1_partial"))
+        try file("telegram-cloud-photo-size-1", header: [0xFF, 0xD8, 0xFF, 0xE0], size: 1_200_000)       // JPEG
+        try file("telegram-peer-photo-size-1", header: [0xFF, 0xD8, 0xFF, 0xE0], size: 1_200_000)        // avatar
+        try file("telegram-cloud-document-4-2_partial", header: [0, 0, 0, 0], size: 1_200_000)          // unfinished
+        try file("cache/thumb", header: [0, 0, 0, 0], size: 1_200_000)
+
+        let items = TelegramCategory.items(in: media, idPrefix: "t", titlePrefix: "", largeFileThreshold: 2_000_000,
+                                           method: .delete)
+        let titles = Set(items.map(\.title))
+        XCTAssertEqual(titles, ["MKV video", "Photos", "Profile pictures", "Unfinished downloads", "Thumbnails & app cache"])
+        let video = try XCTUnwrap(items.first { $0.title == "MKV video" })
+        XCTAssertEqual(video.paths.count, 2, "the hard-linked _partial twin goes with the finished file")
+        XCTAssertLessThan(video.size, 3_500_000, "hard links are counted once")
+        XCTAssertTrue(items.allSatisfy { !$0.isSelectedByDefault })
+    }
 }

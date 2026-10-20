@@ -44,17 +44,17 @@ struct CategoryDetailView: View {
                 Table(category.items.sorted(using: sortOrder), sortOrder: $sortOrder, columnCustomization: $columns) {
                     TableColumn("") { item in
                         Toggle("Select \(item.title)", isOn: Binding(get: { model.selectedItemIDs.contains(item.id) }, set: { _ in model.toggle(item) })).labelsHidden().accessibilityLabel("Select \(item.title)")
-                    }.width(36).customizationID("select")
-                    TableColumn("Name", value: \.title) { item in VStack(alignment: .leading, spacing: 2) { Text(item.title); if let subtitle = item.subtitle { Text(subtitle).font(.caption).foregroundStyle(.secondary) } }.padding(.vertical, 3) }.width(min: 180).customizationID("name")
-                    TableColumn("Location") { item in Text(item.displayPath ?? "—").font(.system(.caption, design: .monospaced)).lineLimit(1).truncationMode(.middle).help(item.displayPath ?? "") }.width(min: 180).customizationID("location")
-                    TableColumn("Branch") { item in Text(item.gitBranch ?? "—").font(.system(.caption, design: .monospaced)).foregroundStyle(.secondary) }.width(min: 100)
+                    }.width(28).customizationID("select")
+                    TableColumn("Name", value: \.title) { item in VStack(alignment: .leading, spacing: 2) { Text(item.title); if let subtitle = item.subtitle { Text(subtitle).font(.caption).foregroundStyle(.secondary) } }.padding(.vertical, 3) }.width(min: 150, ideal: 240).customizationID("name")
+                    TableColumn("Location") { item in Text(item.displayPath ?? "—").font(.system(.caption, design: .monospaced)).lineLimit(1).truncationMode(.middle).help(item.displayPath ?? "") }.width(min: 110, ideal: 200).customizationID("location")
+                    TableColumn("Branch") { item in Text(item.gitBranch ?? "—").font(.system(.caption, design: .monospaced)).foregroundStyle(.secondary) }.width(min: 80, ideal: 140)
                         .customizationID("branch").defaultVisibility(isProjects ? .visible : .hidden)
-                    TableColumn("Last commit", value: \.sortableLastCommit) { item in Text(FileSystem.relative(item.lastCommit) ?? "—").foregroundStyle(.secondary) }.width(min: 105)
+                    TableColumn("Last commit", value: \.sortableLastCommit) { item in Text(FileSystem.relative(item.lastCommit) ?? "—").foregroundStyle(.secondary) }.width(min: 80, ideal: 110)
                         .customizationID("lastCommit").defaultVisibility(isProjects ? .visible : .hidden)
-                    TableColumn("Last changed") { item in Text(FileSystem.relative(item.lastModified) ?? "—").foregroundStyle(.secondary) }.width(min: 100)
+                    TableColumn("Last changed") { item in Text(FileSystem.relative(item.lastModified) ?? "—").foregroundStyle(.secondary) }.width(min: 80, ideal: 110)
                         .customizationID("lastChanged").defaultVisibility(isProjects ? .hidden : .visible)
-                    TableColumn("How") { item in Text(item.method.label).foregroundStyle(.secondary) }.width(min: 105).customizationID("how")
-                    TableColumn("Size", value: \.size) { item in Text(FileSystem.format(item.size)).monospacedDigit().frame(maxWidth: .infinity, alignment: .trailing) }.width(min: 85).customizationID("size")
+                    TableColumn("How") { item in Text(item.method.label).foregroundStyle(.secondary) }.width(min: 70, ideal: 110).customizationID("how")
+                    TableColumn("Size", value: \.size) { item in Text(FileSystem.format(item.size)).monospacedDigit().frame(maxWidth: .infinity, alignment: .trailing) }.width(min: 70, ideal: 85).customizationID("size")
                 }
                 .contextMenu(forSelectionType: CleanupItem.ID.self) { ids in
                     if let item = category.items.first(where: { ids.contains($0.id) }) {

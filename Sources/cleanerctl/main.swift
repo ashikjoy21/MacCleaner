@@ -4,7 +4,7 @@ import Foundation
 // Command-line front end to the same engine as the app.
 //
 //   cleanerctl                      scan and print a summary
-//   cleanerctl --items              … with every item and its command
+//   cleanerctl [ids…] --items       … with every item (optionally only these categories, e.g. `cleanerctl telegram`)
 //   cleanerctl --json               scan and print JSON (for scripts and CI)
 //   cleanerctl script [ids…]        print a shell script for the default selection (optionally only these categories)
 //   cleanerctl clean [ids…] --yes   clean the default selection (optionally only these categories)
@@ -12,8 +12,9 @@ import Foundation
 let args = Array(CommandLine.arguments.dropFirst())
 let flags = Set(args.filter { $0.hasPrefix("--") })
 let positional = args.filter { !$0.hasPrefix("--") }
-let command = positional.first ?? "scan"
-let categoryFilter = Set(positional.dropFirst())
+let commands: Set<String> = ["scan", "script", "clean"]
+let command = positional.first.flatMap { commands.contains($0) ? $0 : nil } ?? "scan"
+let categoryFilter = Set(positional.filter { !commands.contains($0) })
 
 let engine = CleanupEngine()
 var results: [CategoryResult] = []
