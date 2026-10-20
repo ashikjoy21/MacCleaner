@@ -26,7 +26,13 @@ final class AppModel {
     }
     var projectCategory: CategoryResult? { categories.first { $0.section == .projects } }
     var projectItems: [CleanupItem] { (projectCategory?.items ?? []).sorted { $0.size > $1.size } }
-    var projectCount: Int { Set(projectItems.map(\.title)).count }
+    var projectCount: Int { projectGroups.count }
+
+    /// One entry per project folder, combining its node_modules, build, .dart_tool… largest first.
+    var projectGroups: [ProjectGroup] {
+        let byProject = Dictionary(grouping: projectItems) { $0.paths.first?.deletingLastPathComponent().path ?? $0.id }
+        return byProject.map { ProjectGroup(id: $0.key, items: $0.value) }.sorted { $0.size > $1.size }
+    }
     var toolCount: Int { categories.filter { $0.section != .projects }.count }
     var selectedBytes: Int64 { categories.flatMap(\.items).filter { selectedItemIDs.contains($0.id) }.reduce(0) { $0 + $1.size } }
     var selectedCount: Int { categories.filter { categorySelectedBytes($0) > 0 }.count }
@@ -108,4 +114,14 @@ final class AppModel {
         selectedItemIDs.removeAll()
         Task { await scan() }
     }
+}
+
+struct ProjectGroup: Identifiable {
+    let id: String
+    let items: [CleanupItem]
+    var title: String { items.first?.title ?? "" }
+    var size: Int64 { items.reduce(0) { $0 + $1.size } }
+    var folders: String { items.sorted { $0.size > $1.size }.compactMap { $0.paths.first?.lastPathComponent }.joined(separator: ", ") }
+    var branch: String? { items.first?.gitBranch }
+    var lastCommit: Date? { items.compactMap(\.lastCommit).max() }
 }

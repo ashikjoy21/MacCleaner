@@ -24,7 +24,7 @@ struct OverviewView: View {
                                 Button("Show All Projects") { model.selection = projects.id }
                             }
                             VStack(spacing: 0) {
-                                ForEach(Array(model.projectItems.prefix(5))) { item in ProjectOverviewRow(item: item) }
+                                ForEach(Array(model.projectGroups.prefix(5))) { group in ProjectOverviewRow(group: group) }
                             }.background(.background, in: RoundedRectangle(cornerRadius: 10))
                         }
                     }
@@ -45,7 +45,7 @@ struct OverviewView: View {
                 }
                 .padding(28)
             }
-            HStack { Spacer(); Button("Clean Up…") { model.showingConfirmation = true }
+            HStack { Spacer(); Button("Clean Up…") { model.showingConfirmation = true }.keyboardShortcut(.delete, modifiers: [.command])
                 .buttonStyle(.borderedProminent).controlSize(.large).disabled(model.selectedBytes == 0 || model.isCleaning || model.isScanning) }
                 .padding([.horizontal, .bottom], 24).padding(.top, 12)
         }
@@ -54,21 +54,28 @@ struct OverviewView: View {
 
 private struct ProjectOverviewRow: View {
     @Environment(AppModel.self) private var model
-    let item: CleanupItem
+    let group: ProjectGroup
+    private var selectedCount: Int { group.items.filter { model.selectedItemIDs.contains($0.id) }.count }
+
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "hammer").foregroundStyle(.tint).frame(width: 24)
             VStack(alignment: .leading, spacing: 3) {
-                Text(item.title).font(.headline)
+                Text(group.title).font(.headline)
                 HStack(spacing: 8) {
-                    Text(item.paths.first?.lastPathComponent ?? "Build artifacts").foregroundStyle(.secondary)
-                    if let branch = item.gitBranch { Text(branch).font(.caption).foregroundStyle(.secondary).padding(.horizontal, 6).padding(.vertical, 2).background(.quaternary, in: Capsule()) }
-                    if let date = item.lastCommit { Text("last commit \(FileSystem.relative(date) ?? "recently")").font(.caption).foregroundStyle(.secondary) }
+                    Text(group.folders).foregroundStyle(.secondary)
+                    if let branch = group.branch {
+                        Text(branch).foregroundStyle(.secondary).padding(.horizontal, 6).padding(.vertical, 2).background(.quaternary, in: Capsule())
+                    }
+                    if let date = group.lastCommit { Text("last commit \(FileSystem.relative(date) ?? "recently")").foregroundStyle(.secondary) }
                 }.font(.caption).lineLimit(1)
             }
             Spacer(minLength: 8)
-            Text(FileSystem.format(item.size)).monospacedDigit().foregroundStyle(.secondary)
-            Toggle("Select \(item.title)", isOn: Binding(get: { model.selectedItemIDs.contains(item.id) }, set: { _ in model.toggle(item) })).labelsHidden().accessibilityLabel("Select \(item.title)")
+            Text(FileSystem.format(group.size)).monospacedDigit().foregroundStyle(.secondary)
+            Toggle("Select \(group.title)", isOn: Binding(
+                get: { selectedCount == group.items.count },
+                set: { on in for item in group.items where model.selectedItemIDs.contains(item.id) != on { model.toggle(item) } }))
+                .labelsHidden().accessibilityLabel("Select \(group.title)")
         }.padding(.horizontal, 16).padding(.vertical, 10)
     }
 }

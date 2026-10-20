@@ -48,7 +48,7 @@ struct MainView: View {
             }
             .navigationTitle("MacCleaner")
             .listStyle(.sidebar)
-            .navigationSplitViewColumnWidth(min: 240, ideal: 270, max: 340)
+            .navigationSplitViewColumnWidth(min: 270, ideal: 290, max: 360)
         } detail: {
             Group {
                 if let id = model.selection, id != "overview", let category = model.results[id] {
@@ -66,11 +66,6 @@ struct MainView: View {
                     Button { model.copyShellScript() } label: { Label("Copy as Shell Script", systemImage: "terminal") }
                         .keyboardShortcut("c", modifiers: [.command, .shift])
                         .disabled(model.isScanning || model.selectedItems.isEmpty)
-                }
-                ToolbarItem(placement: .automatic) {
-                    Button("Clean Up…") { model.showingConfirmation = true }
-                        .keyboardShortcut(.delete, modifiers: [.command])
-                        .disabled(model.selectedBytes == 0 || model.isCleaning || model.isScanning)
                 }
             }
         }
