@@ -22,9 +22,8 @@ public enum Safety: String, Sendable, CaseIterable {
 public enum RemovalMethod: Sendable, Hashable {
     /// Removed permanently. Only used for data its owner regenerates.
     case delete
-    /// Moved into `~/.Trash/<folder>/`, keeping each file's path relative to `base`
-    /// so the original layout can be restored by dragging it back.
-    case moveToTrash(folder: String, base: URL)
+    /// Moved to the Trash with the system API, so Finder's "Put Back" restores each item to where it was.
+    case moveToTrash
     /// Runs a command, e.g. `docker image prune -a -f`.
     case command([String])
 
@@ -42,8 +41,9 @@ public enum RemovalMethod: Sendable, Hashable {
         case .delete:
             return paths.prefix(3).map { "rm -rf \(shellQuote($0.path.abbreviatingHome))" }.joined(separator: "\n")
                 + (paths.count > 3 ? "\n… and \(paths.count - 3) more" : "")
-        case .moveToTrash(let folder, _):
-            return "mv <\(paths.count) item\(paths.count == 1 ? "" : "s")> ~/.Trash/\(folder)/"
+        case .moveToTrash:
+            return paths.prefix(3).map { "trash \(shellQuote($0.path.abbreviatingHome))" }.joined(separator: "\n")
+                + (paths.count > 3 ? "\n… and \(paths.count - 3) more" : "")
         case .command(let argv):
             return argv.map(shellQuote).joined(separator: " ")
         }
@@ -77,6 +77,8 @@ public struct CleanupItem: Identifiable, Sendable, Hashable {
     /// For project items: the checked-out git branch and the date of the latest commit.
     public let gitBranch: String?
     public let lastCommit: Date?
+    /// The app that must quit before this item is cleaned. Set from its category.
+    public internal(set) var owningApp: AppIdentity?
 
     public init(id: String, title: String, subtitle: String? = nil, paths: [URL], size: Int64,
                 method: RemovalMethod, isSelectedByDefault: Bool, lastModified: Date? = nil,
@@ -153,7 +155,11 @@ public struct CategoryResult: Identifiable, Sendable {
         self.symbol = symbol
         self.safety = safety
         self.appToQuit = appToQuit
-        self.items = items.sorted { $0.size > $1.size }
+        self.items = items.map { item in
+            var item = item
+            item.owningApp = appToQuit
+            return item
+        }.sorted { $0.size > $1.size }
         self.status = status
     }
 

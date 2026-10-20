@@ -26,12 +26,11 @@ struct AIToolsCategory: CleanupCategory {
             summary: "Old conversation transcripts and logs from Codex and Claude Code.",
             explanation: "Coding agents save every session as a transcript so you can resume it later. Files older than "
                 + "30 days are listed; resuming one of those sessions won't be possible once the Trash is emptied. "
-                + "They're moved to the Trash with their folder layout, nothing here is ticked by default, and "
+                + "They're moved to the Trash (Put Back restores them), nothing here is ticked by default, and "
                 + "settings, memory and installed plugins are never touched.",
             symbol: "sparkles", safety: .recoverable)
 
         let cutoff = now.addingTimeInterval(-minimumAge)
-        let folder = "AI coding history \(WhatsAppCategory.dateStamp(now))"
         var items: [CleanupItem] = []
         for source in Self.sources {
             let root = home.appendingPathComponent(source.folder)
@@ -43,7 +42,7 @@ struct AIToolsCategory: CleanupCategory {
             items.append(CleanupItem(id: "ai:\(source.folder)", title: source.name,
                                      subtitle: "\(files.count.formatted()) files older than 30 days · \(source.note)",
                                      paths: files, size: size,
-                                     method: .moveToTrash(folder: folder, base: home),
+                                     method: .moveToTrash,
                                      isSelectedByDefault: false, lastModified: files.compactMap(FileSystem.modificationDate).max()))
         }
         return base.with(items: items)

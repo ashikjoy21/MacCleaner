@@ -31,7 +31,6 @@ struct TelegramCategory: CleanupCategory {
         guard !existing.isEmpty else { return base.with(status: .unavailable("Telegram isn't installed")) }
         if existing.contains(where: FileSystem.isPermissionDenied) { return base.with(status: .needsFullDiskAccess) }
 
-        let folder = "Telegram media cache \(WhatsAppCategory.dateStamp(Date()))"
         var items: [CleanupItem] = []
         for container in existing {
             let accounts = ((try? FileManager.default.contentsOfDirectory(at: container, includingPropertiesForKeys: nil)) ?? [])
@@ -42,7 +41,7 @@ struct TelegramCategory: CleanupCategory {
                 let prefix = accounts.count > 1 ? "Account \(index + 1) · " : ""
                 items += Self.items(in: media, idPrefix: "telegram:\(account.lastPathComponent)", titlePrefix: prefix,
                                     largeFileThreshold: largeFileThreshold,
-                                    method: .moveToTrash(folder: folder, base: container))
+                                    method: .moveToTrash)
             }
         }
         return base.with(items: items)

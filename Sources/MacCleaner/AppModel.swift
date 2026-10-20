@@ -8,7 +8,9 @@ import UniformTypeIdentifiers
 @MainActor
 @Observable
 final class AppModel {
-    let engine = CleanupEngine()
+    var engine: CleanupEngine { CleanupEngine(settings: SettingsStore.current) }
+    /// Folders sent from Finder's "Clean Build Files with MacCleaner" service.
+    var folderRequest: FolderRequest?
     var results: [String: CategoryResult] = [:]
     var selectedItemIDs: Set<String> = []
     var isScanning = false
@@ -124,4 +126,24 @@ struct ProjectGroup: Identifiable {
     var folders: String { items.sorted { $0.size > $1.size }.compactMap { $0.paths.first?.lastPathComponent }.joined(separator: ", ") }
     var branch: String? { items.first?.gitBranch }
     var lastCommit: Date? { items.compactMap(\.lastCommit).max() }
+}
+
+/// A request from Finder to clean build files in specific folders.
+struct FolderRequest: Identifiable {
+    let id = UUID()
+    let folders: [URL]
+}
+
+/// Settings persisted in UserDefaults and turned into engine settings.
+enum SettingsStore {
+    static let projectFoldersKey = "projectFolders"
+    static let staleDaysKey = "staleDays"
+
+    static var current: CleanerSettings {
+        let defaults = UserDefaults.standard
+        let paths = (defaults.string(forKey: projectFoldersKey) ?? "").split(separator: "\n").map(String.init)
+        let days = defaults.integer(forKey: staleDaysKey)
+        return CleanerSettings(projectFolders: paths.isEmpty ? nil : paths.map { URL(fileURLWithPath: $0) },
+                               staleDays: days > 0 ? days : 30)
+    }
 }

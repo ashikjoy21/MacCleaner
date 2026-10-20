@@ -21,7 +21,7 @@ struct WhatsAppCategory: CleanupCategory {
             explanation: "WhatsApp leaves media files on disk after messages are deleted or chat history is re-synced. "
                 + "This compares every file in Message/Media with the paths stored in WhatsApp's database (ChatStorage.sqlite: "
                 + "media, thumbnails, group and profile pictures) and lists only files nothing points to, older than 30 days. "
-                + "They're moved to the Trash, keeping their folder layout, so you can put them back. "
+                + "They're moved to the Trash; Finder's Put Back returns any file to where it was. "
                 + "WhatsApp is quit first so its database is fully saved.",
             symbol: "message", safety: .recoverable, appToQuit: Self.app)
 
@@ -39,13 +39,12 @@ struct WhatsAppCategory: CleanupCategory {
 
         let media = container.appendingPathComponent("Message/Media")
         let leftovers = Self.unreferencedFiles(in: media, referenced: referenced, olderThan: now.addingTimeInterval(-minimumAge))
-        let folder = "WhatsApp leftover media \(Self.dateStamp(now))"
         let byChat = Dictionary(grouping: leftovers) { $0.relativePath.split(separator: "/").first.map(String.init) ?? "" }
         let items = byChat.map { chatID, files in
             CleanupItem(id: "whatsapp:\(chatID)", title: Self.displayName(chatID: chatID, names: chatNames),
                         subtitle: "\(files.count.formatted()) file\(files.count == 1 ? "" : "s") · \(chatID)",
                         paths: files.map(\.url), size: files.reduce(0) { $0 + $1.size },
-                        method: .moveToTrash(folder: folder, base: media), isSelectedByDefault: true,
+                        method: .moveToTrash, isSelectedByDefault: true,
                         lastModified: files.compactMap(\.modified).max())
         }
         return base.with(items: items)

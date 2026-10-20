@@ -6,10 +6,11 @@ public struct CleanupEngine: Sendable {
     public let home: URL
     public let categories: [any CleanupCategory]
 
-    public init(home: URL = FileManager.default.homeDirectoryForCurrentUser) {
+    public init(home: URL = FileManager.default.homeDirectoryForCurrentUser, settings: CleanerSettings = CleanerSettings()) {
         self.home = home
         self.categories = [
-            ProjectBuildsCategory(home: home),
+            ProjectBuildsCategory(home: home, staleAfter: TimeInterval(settings.staleDays) * 86400,
+                                  customRoots: settings.projectFolders),
             DockerCategory(),
             SimulatorsCategory(home: home),
             XcodeCategory(home: home),
@@ -22,6 +23,13 @@ public struct CleanupEngine: Sendable {
             WhatsAppCategory(home: home),
             TelegramCategory(home: home),
         ]
+    }
+
+    /// Build folders inside specific folders, e.g. ones picked in Finder. Everything found is ticked,
+    /// since the user asked for exactly these folders.
+    public static func buildFiles(in folders: [URL], home: URL = FileManager.default.homeDirectoryForCurrentUser) async -> [CleanupItem] {
+        let category = ProjectBuildsCategory(home: home, staleAfter: 0, customRoots: folders)
+        return await category.scan().items
     }
 
     public init(home: URL, categories: [any CleanupCategory]) {
@@ -57,11 +65,11 @@ public struct CleanupEngine: Sendable {
             for app in appsToQuit where !(await AppControl.quit(app)) {
                 failures.append(CleanFailure(itemTitle: app.name, message: "\(app.name) didn't quit, so its items were skipped."))
             }
-            let blocked = Set(failures.map(\.itemTitle))
+            let blocked = Set(appsToQuit.filter(AppControl.isRunning).map(\.bundleID))
             var deleted: Int64 = 0, trashed: Int64 = 0
             for (index, item) in items.enumerated() {
                 progress(CleanProgress(completedItems: index, totalItems: items.count, currentTitle: item.title))
-                if case .moveToTrash(let folder, _) = item.method, blocked.contains(where: { folder.hasPrefix($0) }) { continue }
+                if let app = item.owningApp, blocked.contains(app.bundleID) { continue }
                 let errors = Cleaner.remove(item, home: home)
                 failures += errors.map { CleanFailure(itemTitle: item.title, message: $0) }
                 guard errors.count < max(item.paths.count, 1) else { continue }
@@ -82,9 +90,8 @@ enum Cleaner {
         switch item.method {
         case .delete:
             return item.paths.flatMap { delete($0) }
-        case .moveToTrash(let folder, let base):
-            let trash = home.appendingPathComponent(".Trash").appendingPathComponent(folder)
-            return item.paths.compactMap { moveToTrash($0, base: base, trashFolder: trash) }
+        case .moveToTrash:
+            return item.paths.compactMap { moveToTrash($0) }
         case .command(let argv):
             let result = Shell.run(argv)
             return result.succeeded ? [] : ["\(argv.joined(separator: " ")) failed: \(result.error.trimmingCharacters(in: .whitespacesAndNewlines))"]
@@ -109,27 +116,20 @@ enum Cleaner {
         }
     }
 
-    /// Moves `url` to `trashFolder/<path relative to base>`. Folders are recreated empty
-    /// afterwards so the owning app finds the structure it expects.
-    static func moveToTrash(_ url: URL, base: URL, trashFolder: URL) -> String? {
+    /// How items are trashed. Tests replace this so they never touch the real Trash.
+    nonisolated(unsafe) static var trash: (URL) throws -> Void = { url in
+        try FileManager.default.trashItem(at: url, resultingItemURL: nil)
+    }
+
+    /// Moves `url` to the Trash with the system API, which records where it came from so
+    /// Finder's "Put Back" works. Folders are recreated empty afterwards so the owning app
+    /// finds the structure it expects.
+    static func moveToTrash(_ url: URL) -> String? {
         let fm = FileManager.default
         guard fm.fileExists(atPath: url.path) else { return nil }
-        let basePath = base.standardizedFileURL.path + "/"
-        let path = url.standardizedFileURL.path
-        let relative = path.hasPrefix(basePath) ? String(path.dropFirst(basePath.count)) : url.lastPathComponent
-        let destination = trashFolder.appendingPathComponent(relative)
         let wasDirectory = FileSystem.isDirectory(url)
         do {
-            try fm.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
-            var target = destination
-            var n = 2
-            while fm.fileExists(atPath: target.path) {
-                target = destination.deletingLastPathComponent()
-                    .appendingPathComponent("\(destination.deletingPathExtension().lastPathComponent) \(n)")
-                    .appendingPathExtension(destination.pathExtension)
-                n += 1
-            }
-            try fm.moveItem(at: url, to: target)
+            try trash(url)
             if wasDirectory { try? fm.createDirectory(at: url, withIntermediateDirectories: true) }
             return nil
         } catch {
@@ -188,20 +188,35 @@ public enum ShellScript {
             switch item.method {
             case .delete:
                 lines += item.paths.map { "rm -rf -- \(shellQuote($0.path))" }
-            case .moveToTrash(let folder, let base):
-                let trash = home.appendingPathComponent(".Trash").appendingPathComponent(folder)
-                let basePath = base.standardizedFileURL.path + "/"
-                for path in item.paths {
-                    let full = path.standardizedFileURL.path
-                    let relative = full.hasPrefix(basePath) ? String(full.dropFirst(basePath.count)) : path.lastPathComponent
-                    let destination = trash.appendingPathComponent(relative)
-                    lines.append("mkdir -p \(shellQuote(destination.deletingLastPathComponent().path)) && mv -n -- \(shellQuote(full)) \(shellQuote(destination.path))")
-                }
+            case .moveToTrash:
+                // macOS's `trash` command uses the same API as Finder, so Put Back works.
+                lines += item.paths.map { "trash \(shellQuote($0.path))" }
             case .command(let argv):
                 lines.append(argv.map(shellQuote).joined(separator: " "))
             }
             lines.append("")
         }
         return lines.joined(separator: "\n")
+    }
+}
+
+/// User choices from the Settings window.
+public struct CleanerSettings: Sendable, Equatable {
+    /// Folders that contain code projects. nil means the usual places (~/code, ~/Developer, ~/Projects…).
+    public var projectFolders: [URL]?
+    /// Projects with no commits or edits for this many days are ticked by default.
+    public var staleDays: Int
+
+    public init(projectFolders: [URL]? = nil, staleDays: Int = 30) {
+        self.projectFolders = projectFolders
+        self.staleDays = staleDays
+    }
+
+    /// The folders scanned when `projectFolders` is nil and that exist on this Mac.
+    public static func defaultProjectFolders(home: URL = FileManager.default.homeDirectoryForCurrentUser) -> [URL] {
+        var seen = Set<String>()
+        return ProjectBuildsCategory.roots.map { home.appendingPathComponent($0) }.filter(FileSystem.isDirectory).filter {
+            seen.insert((try? $0.resourceValues(forKeys: [.fileResourceIdentifierKey]).fileResourceIdentifier).map { "\($0)" } ?? $0.path).inserted
+        }
     }
 }

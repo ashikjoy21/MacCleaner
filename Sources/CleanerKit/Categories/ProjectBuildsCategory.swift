@@ -7,6 +7,8 @@ struct ProjectBuildsCategory: CleanupCategory {
     /// Projects untouched for this long are ticked by default.
     var staleAfter: TimeInterval = 30 * 24 * 3600
     var maxDepth = 5
+    /// Folders to scan instead of the usual ones (~/code, ~/Developer…), from Settings or a Finder request.
+    var customRoots: [URL]?
 
     /// Folder names that are build artifacts, and the files that must sit next to
     /// them to prove they belong to a project (so an unrelated "build" folder is never picked up).
@@ -30,12 +32,13 @@ struct ProjectBuildsCategory: CleanupCategory {
             summary: "Installed packages and build output inside your code projects.",
             explanation: "Folders like node_modules, .next, build and .dart_tool are recreated by running the project's "
                 + "install or build command again (npm install, flutter pub get, ./gradlew build…). Your source code is not touched. "
-                + "Projects with no commits or file changes in 30 days are ticked; active projects start unticked.",
+                + "Projects with no commits or file changes in \(Int(staleAfter / 86400)) days are ticked; active projects start unticked.",
             symbol: "folder.badge.gearshape", safety: .review)
 
         // On a case-insensitive disk ~/code and ~/Code are the same folder, so dedupe by file identity.
         var seenRoots = Set<String>()
-        let rootURLs = Self.roots.map { home.appendingPathComponent($0) }.filter(FileSystem.isDirectory).filter { url in
+        let candidates = customRoots ?? Self.roots.map { home.appendingPathComponent($0) }
+        let rootURLs = candidates.filter(FileSystem.isDirectory).filter { url in
             let identity = (try? url.resourceValues(forKeys: [.fileResourceIdentifierKey]).fileResourceIdentifier)
                 .map { "\($0)" } ?? url.path
             return seenRoots.insert(identity).inserted

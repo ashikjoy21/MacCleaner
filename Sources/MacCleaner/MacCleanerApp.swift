@@ -4,6 +4,7 @@ import SwiftUI
 @main
 struct MacCleanerApp: App {
     @State private var model = AppModel()
+    @NSApplicationDelegateAdaptor private var appDelegate: AppDelegate
 
     var body: some Scene {
         WindowGroup {
@@ -11,6 +12,7 @@ struct MacCleanerApp: App {
                 .environment(model)
                 .frame(minWidth: 900, minHeight: 600)
                 .task {
+                    appDelegate.model = model
                     await model.scan()
                 }
         }
@@ -22,6 +24,10 @@ struct MacCleanerApp: App {
             }
         }
         .defaultSize(width: 1050, height: 720)
+
+        Settings {
+            SettingsView()
+        }
     }
 }
 
@@ -73,5 +79,6 @@ struct MainView: View {
         .onAppear { if model.selection == nil { model.selection = "overview" } }
         .sheet(isPresented: $model.showingConfirmation) { ConfirmationView() }
         .sheet(isPresented: $model.showingCleanSheet) { CleanSheet() }
+        .sheet(item: $model.folderRequest, onDismiss: { Task { await model.scan() } }) { request in FolderCleanSheet(request: request) }
     }
 }

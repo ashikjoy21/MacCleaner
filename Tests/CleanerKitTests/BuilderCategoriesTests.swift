@@ -126,16 +126,16 @@ final class BuilderCategoriesTests: XCTestCase {
 
     // MARK: Shell script
 
-    func testShellScriptQuotesPathsAndPreservesLayout() {
+    func testShellScriptQuotesPathsAndUsesTrash() {
         let items = [
             CleanupItem(id: "1", title: "Cache", paths: [URL(fileURLWithPath: "/Users/me/My Cache")], size: 10, method: .delete, isSelectedByDefault: true),
-            CleanupItem(id: "2", title: "Media", paths: [URL(fileURLWithPath: "/m/Media/chat/a.jpg")], size: 5,
-                        method: .moveToTrash(folder: "Left overs", base: URL(fileURLWithPath: "/m/Media")), isSelectedByDefault: true),
+            CleanupItem(id: "2", title: "Media", paths: [URL(fileURLWithPath: "/m/Media/chat a.jpg")], size: 5,
+                        method: .moveToTrash, isSelectedByDefault: true),
             CleanupItem(id: "3", title: "Images", paths: [], size: 1, method: .command(["docker", "image", "prune", "-a", "-f"]), isSelectedByDefault: true),
         ]
         let script = ShellScript.make(for: items, home: URL(fileURLWithPath: "/Users/me"))
         XCTAssertTrue(script.contains("rm -rf -- '/Users/me/My Cache'"))
-        XCTAssertTrue(script.contains("mv -n -- /m/Media/chat/a.jpg '/Users/me/.Trash/Left overs/chat/a.jpg'"))
+        XCTAssertTrue(script.contains("trash '/m/Media/chat a.jpg'"))
         XCTAssertTrue(script.contains("\ndocker image prune -a -f\n"))
     }
 
@@ -164,5 +164,13 @@ final class BuilderCategoriesTests: XCTestCase {
         XCTAssertEqual(video.paths.count, 2, "the hard-linked _partial twin goes with the finished file")
         XCTAssertLessThan(video.size, 3_500_000, "hard links are counted once")
         XCTAssertTrue(items.allSatisfy { !$0.isSelectedByDefault })
+    }
+
+    func testBuildFilesInAPickedFolderAreAllTicked() async throws {
+        try write("anywhere/app/package.json")
+        try write("anywhere/app/node_modules/x.js", String(repeating: "x", count: 11_000_000))
+        let items = await CleanupEngine.buildFiles(in: [home.appendingPathComponent("anywhere/app")], home: home)
+        XCTAssertEqual(items.map { $0.paths.first?.lastPathComponent }, ["node_modules"])
+        XCTAssertTrue(items.allSatisfy(\.isSelectedByDefault))
     }
 }

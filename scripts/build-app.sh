@@ -29,6 +29,16 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
     <key>NSHighResolutionCapable</key><true/>
     <key>NSPrincipalClass</key><string>NSApplication</string>
+    <key>NSServices</key>
+    <array>
+        <dict>
+            <key>NSMenuItem</key><dict><key>default</key><string>Clean Build Files with MacCleaner</string></dict>
+            <key>NSMessage</key><string>cleanBuildFiles</string>
+            <key>NSPortName</key><string>MacCleaner</string>
+            <key>NSRequiredContext</key><dict/>
+            <key>NSSendFileTypes</key><array><string>public.folder</string></array>
+        </dict>
+    </array>
     <key>NSAppleEventsUsageDescription</key><string>MacCleaner quits WhatsApp or Telegram before cleaning their files.</string>
 </dict>
 </plist>

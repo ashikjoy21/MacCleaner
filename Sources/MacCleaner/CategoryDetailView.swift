@@ -1,11 +1,15 @@
 import AppKit
 import CleanerKit
+import QuickLook
 import SwiftUI
 
 struct CategoryDetailView: View {
     @Environment(AppModel.self) private var model
     let category: CategoryResult
     @State private var columns = TableColumnCustomization<CleanupItem>()
+    @State private var tableSelection = Set<CleanupItem.ID>()
+    @State private var previewURL: URL?
+    @State private var previewURLs: [URL] = []
     private var isProjects: Bool { category.section == .projects }
     @State private var sortOrder = [KeyPathComparator<CleanupItem>(\.size, order: .reverse)]
     private var selectedItems: [CleanupItem] { category.items.filter { model.selectedItemIDs.contains($0.id) } }
@@ -41,7 +45,7 @@ struct CategoryDetailView: View {
                     Button("Open System Settings") { Permissions.openFullDiskAccessSettings() }.buttonStyle(.borderedProminent)
                 }.frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                Table(category.items.sorted(using: sortOrder), sortOrder: $sortOrder, columnCustomization: $columns) {
+                Table(category.items.sorted(using: sortOrder), selection: $tableSelection, sortOrder: $sortOrder, columnCustomization: $columns) {
                     TableColumn("") { item in
                         Toggle("Select \(item.title)", isOn: Binding(get: { model.selectedItemIDs.contains(item.id) }, set: { _ in model.toggle(item) })).labelsHidden().accessibilityLabel("Select \(item.title)")
                     }.width(28).customizationID("select")
@@ -58,10 +62,16 @@ struct CategoryDetailView: View {
                 }
                 .contextMenu(forSelectionType: CleanupItem.ID.self) { ids in
                     if let item = category.items.first(where: { ids.contains($0.id) }) {
+                        if !item.paths.isEmpty { Button("Quick Look", systemImage: "eye") { showPreview(for: ids) } }
                         if let url = item.paths.first { Button("Show in Finder", systemImage: "folder") { Permissions.reveal(url) } }
                         Button("Copy Command", systemImage: "doc.on.doc") { NSPasteboard.general.clearContents(); NSPasteboard.general.setString(item.technicalDescription, forType: .string) }
                     }
-                } primaryAction: { _ in }
+                } primaryAction: { ids in showPreview(for: ids) }
+                .onKeyPress(.space) {
+                    if previewURL != nil { previewURL = nil } else { showPreview(for: tableSelection) }
+                    return .handled
+                }
+                .quickLookPreview($previewURL, in: previewURLs)
                 .padding(.horizontal, 18)
                 DisclosureGroup("Commands") {
                     ScrollView { Text(selectedItems.map(\.technicalDescription).joined(separator: "\n\n")).font(.system(.caption, design: .monospaced)).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading).padding(10) }
@@ -76,6 +86,14 @@ struct CategoryDetailView: View {
                 }.padding(20)
             }
         }
+    }
+
+    /// Previews the files of the selected rows with Quick Look; arrow keys move between them.
+    private func showPreview(for ids: Set<CleanupItem.ID>) {
+        let paths = category.items.filter { ids.contains($0.id) }.flatMap { $0.paths.prefix(200) }
+        guard !paths.isEmpty else { return }
+        previewURLs = paths.map(QuickLookSupport.previewableURL)
+        previewURL = previewURLs.first
     }
 }
 

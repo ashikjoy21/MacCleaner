@@ -94,25 +94,43 @@ final class CleanerKitTests: XCTestCase {
 
     // MARK: Moving to Trash
 
-    func testMoveToTrashKeepsRelativeLayout() throws {
-        let base = home.appendingPathComponent("Media")
+    /// Sends "trashed" items to a temp folder instead of the real Trash.
+    func captureTrash() -> URL {
+        let bin = home.appendingPathComponent("FakeTrash")
+        try? FileManager.default.createDirectory(at: bin, withIntermediateDirectories: true)
+        Cleaner.trash = { url in try FileManager.default.moveItem(at: url, to: bin.appendingPathComponent(url.lastPathComponent)) }
+        return bin
+    }
+
+    override func tearDown() {
+        Cleaner.trash = { url in try FileManager.default.trashItem(at: url, resultingItemURL: nil) }
+        super.tearDown()
+    }
+
+    func testMoveToTrashUsesTheSystemTrash() throws {
+        let bin = captureTrash()
         let file = try makeFile("Media/111@lid/a/b/orphan.mp4")
-        let item = CleanupItem(id: "x", title: "x", paths: [file], size: 1,
-                               method: .moveToTrash(folder: "Leftovers", base: base), isSelectedByDefault: true)
+        let item = CleanupItem(id: "x", title: "x", paths: [file], size: 1, method: .moveToTrash, isSelectedByDefault: true)
         XCTAssertEqual(Cleaner.remove(item, home: home), [])
         XCTAssertFalse(FileManager.default.fileExists(atPath: file.path))
-        XCTAssertTrue(FileManager.default.fileExists(atPath: home.appendingPathComponent(".Trash/Leftovers/111@lid/a/b/orphan.mp4").path))
+        XCTAssertTrue(FileManager.default.fileExists(atPath: bin.appendingPathComponent("orphan.mp4").path))
     }
 
     func testMoveFolderToTrashRecreatesItEmpty() throws {
+        _ = captureTrash()
         try makeFile("tg/account-1/postbox/media/big.bin")
         let media = home.appendingPathComponent("tg/account-1/postbox/media")
-        let item = CleanupItem(id: "t", title: "t", paths: [media], size: 1,
-                               method: .moveToTrash(folder: "TG", base: home.appendingPathComponent("tg")), isSelectedByDefault: false)
+        let item = CleanupItem(id: "t", title: "t", paths: [media], size: 1, method: .moveToTrash, isSelectedByDefault: false)
         XCTAssertEqual(Cleaner.remove(item, home: home), [])
         XCTAssertTrue(FileSystem.isDirectory(media))
         XCTAssertEqual(try FileManager.default.contentsOfDirectory(atPath: media.path), [])
-        XCTAssertTrue(FileManager.default.fileExists(atPath: home.appendingPathComponent(".Trash/TG/account-1/postbox/media/big.bin").path))
+    }
+
+    func testItemsInheritTheirCategorysApp() {
+        let item = CleanupItem(id: "w", title: "w", paths: [], size: 1, method: .moveToTrash, isSelectedByDefault: true)
+        let result = CategoryResult(id: "c", name: "", summary: "", explanation: "", symbol: "", safety: .recoverable,
+                                    appToQuit: WhatsAppCategory.app, items: [item])
+        XCTAssertEqual(result.items.first?.owningApp, WhatsAppCategory.app)
     }
 
     // MARK: Project build folders
