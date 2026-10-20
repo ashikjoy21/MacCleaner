@@ -163,6 +163,11 @@ public protocol CleanupCategory: Sendable {
 
 /// Progress while cleaning, for a progress bar.
 public struct CleanProgress: Sendable {
+    public init(completedItems: Int, totalItems: Int, currentTitle: String) {
+        self.completedItems = completedItems
+        self.totalItems = totalItems
+        self.currentTitle = currentTitle
+    }
     public let completedItems: Int
     public let totalItems: Int
     public let currentTitle: String
