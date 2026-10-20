@@ -1,4 +1,4 @@
-// Renders Resources/AppIcon.icns: an SF Symbol on a macOS-style rounded square.
+// Renders the app icon PNGs into App/Assets.xcassets: an SF Symbol on a macOS-style rounded square.
 // Usage: swift scripts/make-icon.swift
 import AppKit
 
@@ -44,17 +44,10 @@ func render(size: CGFloat) -> Data {
 }
 
 let fm = FileManager.default
-let iconset = URL(fileURLWithPath: "build/AppIcon.iconset")
-try? fm.removeItem(at: iconset)
-try fm.createDirectory(at: iconset, withIntermediateDirectories: true)
+let catalog = URL(fileURLWithPath: "App/Assets.xcassets/AppIcon.appiconset")
+try fm.createDirectory(at: catalog, withIntermediateDirectories: true)
 for base in [16, 32, 128, 256, 512] {
-    try render(size: CGFloat(base)).write(to: iconset.appendingPathComponent("icon_\(base)x\(base).png"))
-    try render(size: CGFloat(base * 2)).write(to: iconset.appendingPathComponent("icon_\(base)x\(base)@2x.png"))
+    try render(size: CGFloat(base)).write(to: catalog.appendingPathComponent("icon_\(base)x\(base).png"))
+    try render(size: CGFloat(base * 2)).write(to: catalog.appendingPathComponent("icon_\(base)x\(base)@2x.png"))
 }
-try fm.createDirectory(at: URL(fileURLWithPath: "Resources"), withIntermediateDirectories: true)
-let p = Process()
-p.executableURL = URL(fileURLWithPath: "/usr/bin/iconutil")
-p.arguments = ["-c", "icns", iconset.path, "-o", "Resources/AppIcon.icns"]
-try p.run()
-p.waitUntilExit()
-print(p.terminationStatus == 0 ? "Wrote Resources/AppIcon.icns" : "iconutil failed")
+print("Wrote \(catalog.path)")

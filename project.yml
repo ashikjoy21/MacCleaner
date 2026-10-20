@@ -1,0 +1,54 @@
+# Generates MacCleaner.xcodeproj: `xcodegen generate`. The engine lives in the Swift package (Package.swift).
+name: MacCleaner
+options:
+  bundleIdPrefix: in.co.lno
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+packages:
+  CleanerKit:
+    path: .
+targets:
+  MacCleaner:
+    type: application
+    platform: macOS
+    sources:
+      - path: Sources/MacCleaner
+      - path: App/Assets.xcassets
+    dependencies:
+      - package: CleanerKit
+        product: CleanerKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: in.co.lno.MacCleaner
+        PRODUCT_NAME: MacCleaner
+        MARKETING_VERSION: "1.1"
+        CURRENT_PROJECT_VERSION: "2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_STYLE: Manual
+        CODE_SIGN_IDENTITY: "-"
+        ENABLE_HARDENED_RUNTIME: NO
+        SWIFT_VERSION: "5.0"
+        GENERATE_INFOPLIST_FILE: NO
+        INFOPLIST_FILE: App/Info.plist
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleName: MacCleaner
+        CFBundleDisplayName: MacCleaner
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        CFBundleIconName: AppIcon
+        LSMinimumSystemVersion: "14.0"
+        LSApplicationCategoryType: public.app-category.developer-tools
+        NSPrincipalClass: NSApplication
+        NSHighResolutionCapable: true
+        NSAppleEventsUsageDescription: MacCleaner quits WhatsApp or Telegram before cleaning their files.
+        NSServices:
+          - NSMenuItem:
+              default: Clean Build Files with MacCleaner
+            NSMessage: cleanBuildFiles
+            NSPortName: MacCleaner
+            NSRequiredContext: {}
+            NSSendFileTypes:
+              - public.folder
