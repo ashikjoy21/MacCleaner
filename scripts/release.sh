@@ -50,7 +50,8 @@ KEYCHAIN="$HOME/.maccleaner-signing/signing.keychain-db"
 SIGN=(-)
 if [[ -f "$KEYCHAIN" ]]; then
     security unlock-keychain -p "$(cat "$HOME/.maccleaner-signing/keychain-password")" "$KEYCHAIN"
-    if security find-identity -v -p codesigning "$KEYCHAIN" | grep -q "$SIGNING_IDENTITY"; then
+    if security find-identity -v -p codesigning "$KEYCHAIN" | grep -q "$SIGNING_IDENTITY" \
+        && security list-keychains -d user | grep -q "$KEYCHAIN"; then
         SIGN=("$SIGNING_IDENTITY" --keychain "$KEYCHAIN")
     fi
 fi

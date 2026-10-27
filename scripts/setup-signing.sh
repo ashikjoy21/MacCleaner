@@ -26,12 +26,17 @@ security unlock-keychain -p "$PASSWORD" "$KEYCHAIN"
 
 print_trust_step() {
     echo
-    echo "One step left: trust the certificate for code signing (asks for your password). Run:"
-    echo "  security add-trusted-cert -r trustRoot -p codeSign -k \"$KEYCHAIN\" \"$DIR/certificate.pem\""
+    echo "Two one-time steps left. Run both:"
+    echo "  1. Trust the certificate for code signing (asks for your password):"
+    echo "     security add-trusted-cert -r trustRoot -p codeSign -k \"$KEYCHAIN\" \"$DIR/certificate.pem\""
+    echo "  2. Let codesign find it by adding its keychain to your search list:"
+    echo "     security list-keychains -d user -s ~/Library/Keychains/login.keychain-db \"$KEYCHAIN\""
 }
 
+in_search_list() { security list-keychains -d user | grep -q "$KEYCHAIN"; }
+
 if security find-identity -p codesigning "$KEYCHAIN" | grep -q "$SIGNING_IDENTITY"; then
-    if security find-identity -v -p codesigning "$KEYCHAIN" | grep -q "$SIGNING_IDENTITY"; then
+    if security find-identity -v -p codesigning "$KEYCHAIN" | grep -q "$SIGNING_IDENTITY" && in_search_list; then
         echo "Signing identity \"$SIGNING_IDENTITY\" is ready."
     else
         print_trust_step
