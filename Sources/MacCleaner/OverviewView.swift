@@ -9,6 +9,7 @@ struct OverviewView: View {
         VStack(spacing: 0) {
             ScrollView {
                 VStack(alignment: .leading, spacing: 22) {
+                    if let release = UpdateChecker.shared.available { UpdateBanner(release: release) }
                     VStack(alignment: .leading, spacing: 6) {
                         Text("You can free up \(FileSystem.format(model.selectedBytes))").font(.largeTitle.weight(.semibold)).monospacedDigit()
                         Text("Across \(model.projectCount) projects and \(model.toolCount) tools · \(FileSystem.format(usage.availableBytes)) available on Macintosh HD")
@@ -145,4 +146,29 @@ private struct Legend: View {
 private struct LegendLabel: LabelStyle {
     let color: Color
     func makeBody(configuration: Configuration) -> some View { HStack(spacing: 5) { configuration.icon.foregroundStyle(color); configuration.title.foregroundStyle(.secondary) } }
+}
+
+/// Shown at the top of the Overview when a newer version is on GitHub Releases.
+private struct UpdateBanner: View {
+    let release: UpdateChecker.Release
+    private var checker: UpdateChecker { .shared }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "arrow.down.circle.fill").font(.title2).foregroundStyle(.tint)
+            VStack(alignment: .leading, spacing: 2) {
+                Text("MacCleaner \(release.version) is available").font(.headline)
+                Text("You have \(checker.currentVersion). The update installs in a few seconds and reopens the app.")
+                    .font(.callout).foregroundStyle(.secondary)
+            }
+            Spacer()
+            if checker.isInstalling {
+                ProgressView().controlSize(.small)
+            } else {
+                Button("Update") { checker.install() }.buttonStyle(.borderedProminent)
+            }
+        }
+        .padding(14)
+        .background(.tint.opacity(0.1), in: RoundedRectangle(cornerRadius: 10))
+    }
 }

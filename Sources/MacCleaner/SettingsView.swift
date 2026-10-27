@@ -5,6 +5,7 @@ import SwiftUI
 /// The Settings window (⌘,).
 struct SettingsView: View {
     @AppStorage(SettingsStore.staleDaysKey) private var staleDays = 30
+    @AppStorage(UpdateChecker.automaticKey) private var checkForUpdates = true
     /// Newline-separated paths; empty means the default folders.
     @AppStorage(SettingsStore.projectFoldersKey) private var storedFoldersText = ""
     private var storedFolders: [String] {
@@ -48,6 +49,11 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
+            Section("Updates") {
+                Toggle("Check for updates automatically", isOn: $checkForUpdates)
+                LabeledContent("Version", value: UpdateChecker.shared.currentVersion)
+            }
+
             Section("Finder") {
                 LabeledContent("Quick Action") {
                     Text("Right-click a folder › Services › Clean Build Files with MacCleaner")
@@ -59,7 +65,7 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 520, height: 520)
+        .frame(width: 520, height: 600)
     }
 
     private func addFolder() {

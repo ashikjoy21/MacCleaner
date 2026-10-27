@@ -44,6 +44,9 @@ targets:
         NSPrincipalClass: NSApplication
         NSHighResolutionCapable: true
         NSAppleEventsUsageDescription: MacCleaner quits WhatsApp or Telegram before cleaning their files.
+        NSHumanReadableCopyright: "© 2026 Ashik Joy"
+        # Where the app checks for updates; must match GITHUB_REPO in release.env.
+        MCGitHubRepo: ashikjoy21/MacCleaner
         NSServices:
           - NSMenuItem:
               default: Clean Build Files with MacCleaner

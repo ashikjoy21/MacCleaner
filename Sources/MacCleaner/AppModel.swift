@@ -19,6 +19,11 @@ final class AppModel {
     var cleanReport: CleanReport?
     private var cleanedItemIDs = Set<String>()
     var showingConfirmation = false
+    var showingUpdateResult = false
+    /// Shown once, on first launch.
+    var showingWelcome = !UserDefaults.standard.bool(forKey: "didShowWelcome") {
+        didSet { if !showingWelcome { UserDefaults.standard.set(true, forKey: "didShowWelcome") } }
+    }
     /// The category Clean Up was started from, or nil for everything ticked (from the Overview).
     var cleanScope: String?
     var showingCleanSheet = false

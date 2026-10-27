@@ -26,10 +26,14 @@
 	<string>public.app-category.developer-tools</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
+	<key>MCGitHubRepo</key>
+	<string>ashikjoy21/MacCleaner</string>
 	<key>NSAppleEventsUsageDescription</key>
 	<string>MacCleaner quits WhatsApp or Telegram before cleaning their files.</string>
 	<key>NSHighResolutionCapable</key>
 	<true/>
+	<key>NSHumanReadableCopyright</key>
+	<string>© 2026 Ashik Joy</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 	<key>NSServices</key>

@@ -13,10 +13,14 @@ struct MacCleanerApp: App {
                 .frame(minWidth: 900, minHeight: 600)
                 .task {
                     appDelegate.model = model
-                    await model.scan()
+                    await UpdateChecker.shared.checkIfDue()
                 }
+                .task { await model.scan() }
         }
         .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") { Task { await UpdateChecker.shared.check(); model.showingUpdateResult = true } }
+            }
             CommandGroup(replacing: .newItem) {
                 Button("Save Shell Script…") { model.saveShellScript() }
                     .keyboardShortcut("s", modifiers: [.command, .shift])
@@ -33,6 +37,11 @@ struct MacCleanerApp: App {
 
 struct MainView: View {
     @Environment(AppModel.self) private var model
+
+    private var updateAlertTitle: String {
+        if let release = UpdateChecker.shared.available { return "MacCleaner \(release.version) is available" }
+        return UpdateChecker.shared.lastError == nil ? "MacCleaner is up to date" : "Couldn't check for updates"
+    }
 
     var body: some View {
         @Bindable var model = model
@@ -82,6 +91,17 @@ struct MainView: View {
         .onAppear { if model.selection == nil { model.selection = "overview" } }
         .sheet(isPresented: $model.showingConfirmation) { ConfirmationView() }
         .sheet(isPresented: $model.showingCleanSheet) { CleanSheet() }
+        .sheet(isPresented: $model.showingWelcome) { WelcomeView() }
+        .alert(updateAlertTitle, isPresented: $model.showingUpdateResult) {
+            if UpdateChecker.shared.available != nil {
+                Button("Update Now") { UpdateChecker.shared.install() }
+                Button("Later", role: .cancel) {}
+            } else {
+                Button("OK", role: .cancel) {}
+            }
+        } message: {
+            Text(UpdateChecker.shared.lastError ?? UpdateChecker.shared.available?.notes ?? "You have the latest version, \(UpdateChecker.shared.currentVersion).")
+        }
         .sheet(item: $model.folderRequest, onDismiss: { Task { await model.scan() } }) { request in FolderCleanSheet(request: request) }
     }
 }

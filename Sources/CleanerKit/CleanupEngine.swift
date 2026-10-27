@@ -167,6 +167,11 @@ public enum AppControl {
 
 /// Full Disk Access is needed to read other apps' data (WhatsApp, Telegram).
 public enum Permissions {
+    /// Whether this app has Full Disk Access. The TCC database is readable only with it.
+    public static var hasFullDiskAccess: Bool {
+        FileHandle(forReadingAtPath: "/Library/Application Support/com.apple.TCC/TCC.db") != nil
+    }
+
     /// Opens System Settings at Privacy & Security › Full Disk Access.
     @MainActor public static func openFullDiskAccessSettings() {
         if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles") {
