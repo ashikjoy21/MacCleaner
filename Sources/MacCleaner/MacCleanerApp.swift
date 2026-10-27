@@ -39,6 +39,7 @@ struct MainView: View {
         NavigationSplitView {
             List(selection: $model.selection) {
                 Label("Overview", systemImage: "chart.pie").tag("overview")
+                Label("File Browser", systemImage: "folder.badge.questionmark").tag("browser")
                 ForEach(CategorySection.allCases, id: \.self) { section in
                     let categories = model.categories.filter { $0.section == section }
                     if !categories.isEmpty { Section(section.title) {
@@ -57,7 +58,9 @@ struct MainView: View {
             .navigationSplitViewColumnWidth(min: 270, ideal: 290, max: 360)
         } detail: {
             Group {
-                if let id = model.selection, id != "overview", let category = model.results[id] {
+                if model.selection == "browser" {
+                    FileBrowserView()
+                } else if let id = model.selection, id != "overview", let category = model.results[id] {
                     CategoryDetailView(category: category).id(category.id)
                 } else {
                     OverviewView()

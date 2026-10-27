@@ -17,7 +17,10 @@ final class AppModel {
     var isCleaning = false
     var cleanProgress: CleanProgress?
     var cleanReport: CleanReport?
+    private var cleanedItemIDs = Set<String>()
     var showingConfirmation = false
+    /// The category Clean Up was started from, or nil for everything ticked (from the Overview).
+    var cleanScope: String?
     var showingCleanSheet = false
     var selection: String?
 
@@ -45,6 +48,25 @@ final class AppModel {
         }
     }
 
+    /// The categories a Clean Up covers: just the one it was started from, or all of them.
+    var scopedCategories: [CategoryResult] {
+        guard let cleanScope else { return categories }
+        return categories.filter { $0.id == cleanScope }
+    }
+    var scopedItems: [CleanupItem] { scopedCategories.flatMap(\.items).filter { selectedItemIDs.contains($0.id) } }
+    var scopedBytes: Int64 { scopedItems.reduce(0) { $0 + $1.size } }
+    var scopedAppsToQuit: [AppIdentity] {
+        scopedCategories.compactMap { category in
+            category.items.contains(where: { selectedItemIDs.contains($0.id) }) ? category.appToQuit : nil
+        }
+    }
+
+    /// Opens the confirmation for one category (from its page) or for everything ticked (from the Overview).
+    func requestCleanUp(category: String? = nil) {
+        cleanScope = category
+        showingConfirmation = true
+    }
+
     func selectedBytes(in category: CategoryResult) -> Int64 { category.items.filter { selectedItemIDs.contains($0.id) }.reduce(0) { $0 + $1.size } }
     private func categorySelectedBytes(_ category: CategoryResult) -> Int64 { selectedBytes(in: category) }
 
@@ -63,8 +85,9 @@ final class AppModel {
         if selectedItemIDs.contains(item.id) { selectedItemIDs.remove(item.id) } else { selectedItemIDs.insert(item.id) }
     }
 
-    func copyShellScript() {
-        let script = ShellScript.make(for: selectedItems, appsToQuit: appsToQuit)
+    func copyShellScript(scopedOnly: Bool = false) {
+        let script = scopedOnly ? ShellScript.make(for: scopedItems, appsToQuit: scopedAppsToQuit)
+                                : ShellScript.make(for: selectedItems, appsToQuit: appsToQuit)
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(script, forType: .string)
     }
@@ -100,8 +123,9 @@ final class AppModel {
         showingConfirmation = false
         showingCleanSheet = true
         isCleaning = true
-        let items = selectedItems
-        let apps = appsToQuit
+        let items = scopedItems
+        let apps = scopedAppsToQuit
+        cleanedItemIDs = Set(items.map(\.id))
         cleanReport = nil
         cleanProgress = nil
         cleanReport = await engine.clean(items, appsToQuit: apps) { [weak self] progress in
@@ -113,7 +137,10 @@ final class AppModel {
     func finishClean() {
         showingCleanSheet = false
         cleanReport = nil
-        selectedItemIDs.removeAll()
+        // Only the items that were cleaned lose their tick; choices elsewhere stay.
+        selectedItemIDs.subtract(cleanedItemIDs)
+        cleanedItemIDs = []
+        cleanScope = nil
         Task { await scan() }
     }
 }

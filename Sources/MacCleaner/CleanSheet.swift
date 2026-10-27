@@ -4,38 +4,79 @@ import SwiftUI
 struct ConfirmationView: View {
     @Environment(AppModel.self) private var model
     @Environment(\.dismiss) private var dismiss
-    private enum Group: String, CaseIterable { case deleted = "Deleted permanently (rebuilds automatically)", trash = "Moved to Trash", commands = "Commands" }
-    private func items(for group: Group) -> [CleanupItem] {
-        model.selectedItems.filter { item in
-            switch (group, item.method) {
-            case (.deleted, .delete): true
-            case (.trash, .moveToTrash): true
-            case (.commands, .command): true
-            default: false
-            }
+
+    private var groups: [(category: CategoryResult, items: [CleanupItem])] {
+        model.scopedCategories.compactMap { category in
+            let items = category.items.filter { model.selectedItemIDs.contains($0.id) }
+            return items.isEmpty ? nil : (category, items)
         }
     }
-    private func size(_ items: [CleanupItem]) -> Int64 { items.reduce(0) { $0 + $1.size } }
+
+    private var title: String {
+        let size = FileSystem.format(model.scopedBytes)
+        if model.cleanScope != nil, let category = groups.first?.category { return "Clean Up \(size) from \(category.name)?" }
+        return "Clean Up \(size)?"
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("Clean Up \(FileSystem.format(model.selectedBytes))?").font(.title2.weight(.semibold)).padding(.bottom, 16)
+            Text(title).font(.title2.weight(.semibold))
+            Text(model.cleanScope == nil ? "Everything ticked in every category." : "Only the items ticked in this category.")
+                .foregroundStyle(.secondary).padding(.bottom, 16)
             List {
-                ForEach(Group.allCases, id: \.self) { group in
-                    let entries = items(for: group)
-                    if !entries.isEmpty {
-                        Section { ForEach(entries) { item in HStack { Text(item.title); Spacer(); Text(FileSystem.format(item.size)).foregroundStyle(.secondary).monospacedDigit() } } }
-                        header: { HStack { Text(group.rawValue); Spacer(); Text(FileSystem.format(size(entries))).foregroundStyle(.secondary).monospacedDigit() } }
+                ForEach(groups, id: \.category.id) { group in
+                    Section {
+                        ForEach(group.items) { item in
+                            HStack {
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(item.title).lineLimit(1)
+                                    if let detail = detail(for: item) {
+                                        Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                                    }
+                                }
+                                Spacer()
+                                Text(FileSystem.format(item.size)).foregroundStyle(.secondary).monospacedDigit()
+                            }
+                        }
+                    } header: {
+                        HStack {
+                            Label(group.category.name, systemImage: group.category.symbol)
+                            Text(methodSummary(group.items)).foregroundStyle(.secondary)
+                            Spacer()
+                            Text(FileSystem.format(group.items.reduce(0) { $0 + $1.size })).foregroundStyle(.secondary).monospacedDigit()
+                        }
                     }
                 }
-                if !model.appsToQuit.isEmpty { Section { ForEach(model.appsToQuit, id: \.bundleID) { app in Label("\(app.name) will be quit before cleaning.", systemImage: "exclamationmark.triangle").foregroundStyle(.secondary) } } }
+                if !model.scopedAppsToQuit.isEmpty {
+                    Section {
+                        ForEach(model.scopedAppsToQuit, id: \.bundleID) { app in
+                            Label("\(app.name) will be quit before cleaning.", systemImage: "exclamationmark.triangle").foregroundStyle(.secondary)
+                        }
+                    }
+                }
             }.listStyle(.inset)
-            HStack { Button("Copy Script") { model.copyShellScript() }.disabled(model.selectedItems.isEmpty)
-                Spacer(); Button("Cancel", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
-                Button("Clean Up") { Task { await model.clean() } }.buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction) }
-                .padding(.top, 16)
+            HStack {
+                Button("Copy Script") { model.copyShellScript(scopedOnly: true) }.disabled(model.scopedItems.isEmpty)
+                Spacer()
+                Button("Cancel", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
+                Button("Clean Up") { Task { await model.clean() } }
+                    .buttonStyle(.borderedProminent).keyboardShortcut(.defaultAction).disabled(model.scopedItems.isEmpty)
+            }
+            .padding(.top, 16)
         }
-        .padding(24).frame(minWidth: 520, minHeight: 420)
+        .padding(24).frame(minWidth: 560, minHeight: 440)
+    }
+
+    /// The folder or file name under the title, so "abc-dashboard/client" rows say node_modules or .next.
+    private func detail(for item: CleanupItem) -> String? {
+        guard let first = item.paths.first else { return item.subtitle }
+        if item.paths.count > 1 { return "\(item.paths.count) items · \(first.deletingLastPathComponent().lastPathComponent)" }
+        return first.lastPathComponent == item.title ? item.subtitle : first.lastPathComponent
+    }
+
+    private func methodSummary(_ items: [CleanupItem]) -> String {
+        let labels = Set(items.map(\.method.label))
+        return "· " + labels.sorted().joined(separator: ", ").lowercased()
     }
 }
 

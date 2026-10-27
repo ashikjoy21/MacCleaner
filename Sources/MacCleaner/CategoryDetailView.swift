@@ -83,6 +83,10 @@ struct CategoryDetailView: View {
                     Button("Select None") { model.setCategory(category, selected: false) }
                     Spacer()
                     Text("\(selectedItems.count) selected · \(FileSystem.format(model.selectedBytes(in: category)))").foregroundStyle(.secondary).monospacedDigit()
+                    Button("Clean Up \(category.name)…") { model.requestCleanUp(category: category.id) }
+                        .buttonStyle(.borderedProminent).controlSize(.large)
+                        .keyboardShortcut(.delete, modifiers: [.command])
+                        .disabled(selectedItems.isEmpty || model.isScanning || model.isCleaning)
                 }.padding(20)
             }
         }

@@ -93,4 +93,52 @@ final class DeepScanTests: XCTestCase {
                                                   URL(fileURLWithPath: "/x/report.pdf")])
         XCTAssertEqual(keep.lastPathComponent, "report.pdf")
     }
+
+    // MARK: Home folder
+
+    func testHiddenFoldersSkipCredentialsAndInstalledTools() async throws {
+        try write(".gemini/history.bin", bytes: 3_000_000)
+        try write(".ssh/id_ed25519", bytes: 3_000_000)
+        try write(".local/share/claude/versions/bin", bytes: 3_000_000)
+        try write(".cache/ms-playwright/chromium", bytes: 3_000_000)
+        var category = HiddenFoldersCategory(home: home)
+        category.minimumSize = 1_000_000
+        let titles = Set(await category.scan().items.map(\.title))
+        XCTAssertEqual(titles, ["~/.gemini", "~/.cache/ms-playwright"])
+    }
+
+    func testOllamaListParsing() {
+        let output = """
+            NAME                ID              SIZE      MODIFIED
+            gemma4:latest       eb2177adf764    9.5 GB    2 days ago
+            tiny:1b             0123456789ab    850 MB    3 weeks ago
+            """
+        let models = LocalModelsCategory.parseOllamaList(output)
+        XCTAssertEqual(models.map(\.name), ["gemma4:latest", "tiny:1b"])
+        XCTAssertEqual(models.map(\.size), [9_500_000_000, 850_000_000])
+        XCTAssertEqual(models.first?.modified, "2 days ago")
+    }
+
+    func testFileBrowserProtectsStandardFolders() {
+        let h = URL(fileURLWithPath: "/Users/me")
+        XCTAssertFalse(FolderBrowser.canTrash(h, home: h))
+        XCTAssertFalse(FolderBrowser.canTrash(h.appendingPathComponent("Library"), home: h))
+        XCTAssertFalse(FolderBrowser.canTrash(h.appendingPathComponent("Documents"), home: h))
+        XCTAssertFalse(FolderBrowser.canTrash(h.appendingPathComponent(".ssh"), home: h))
+        XCTAssertFalse(FolderBrowser.canTrash(URL(fileURLWithPath: "/Applications/Xcode.app"), home: h))
+        XCTAssertTrue(FolderBrowser.canTrash(h.appendingPathComponent(".gemini"), home: h))
+        XCTAssertTrue(FolderBrowser.canTrash(h.appendingPathComponent("Documents/old.zip"), home: h))
+    }
+
+    func testFileBrowserMeasuresEntries() async throws {
+        try write("box/a.bin", bytes: 100_000)
+        try write("box/inner/b.bin", bytes: 200_000)
+        let browser = FolderBrowser(home: home)
+        let entries = browser.entries(in: home.appendingPathComponent("box"))
+        XCTAssertEqual(Set(entries.map(\.name)), ["a.bin", "inner"])
+        var sizes: [String: Int64] = [:]
+        for await (url, size) in browser.sizes(for: entries) { sizes[url.lastPathComponent] = size }
+        XCTAssertGreaterThanOrEqual(sizes["inner"] ?? 0, 200_000)
+        XCTAssertEqual(entries.first { $0.name == "inner" }?.isFolder, true)
+    }
 }

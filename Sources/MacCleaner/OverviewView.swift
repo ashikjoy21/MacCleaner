@@ -45,7 +45,7 @@ struct OverviewView: View {
                 }
                 .padding(28)
             }
-            HStack { Spacer(); Button("Clean Up…") { model.showingConfirmation = true }.keyboardShortcut(.delete, modifiers: [.command])
+            HStack { Spacer(); Button("Clean Up All Selected…") { model.requestCleanUp() }.keyboardShortcut(.delete, modifiers: [.command])
                 .buttonStyle(.borderedProminent).controlSize(.large).disabled(model.selectedBytes == 0 || model.isCleaning || model.isScanning) }
                 .padding([.horizontal, .bottom], 24).padding(.top, 12)
         }
